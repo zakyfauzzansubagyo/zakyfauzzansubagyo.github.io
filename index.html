@@ -179,6 +179,33 @@
     </div>
 
     <div class="insight-section">
+        <div class="card config-panel-box">
+            <h4 style="border-left-color: #10b981;">🔧 Konfigurasi Kwh Meter</h4>
+            <div class="config-list">
+                <div class="config-item">
+                    <div class="config-item-info">
+                        <span>🔌 Batas Daya Rumah</span>
+                        <strong id="ui-house-va">1300 VA</strong>
+                    </div>
+                    <button class="config-btn-edit" onclick="changeHouseVA()">Ubah</button>
+                </div>
+                <div class="config-item">
+                    <div class="config-item-info">
+                        <span>🎯 Limit Anggaran</span>
+                        <strong id="ui-budget-limit">Rp 100.000</strong>
+                    </div>
+                    <button class="config-btn-edit" onclick="changeLimit()">Ubah</button>
+                </div>
+                <div class="config-item">
+                    <div class="config-item-info">
+                        <span>💵 Tarif Listrik PLN</span>
+                        <strong id="ui-pln-tariff">Rp 1.500/kWh</strong>
+                    </div>
+                    <button class="config-btn-edit" onclick="changePlnTariff()">Ubah</button>
+                </div>
+            </div>
+        </div>
+        
         <div class="card chart-box">
             <h4>Beban Rumah Detik Ini</h4>
             <div class="canvas-container">
@@ -214,33 +241,6 @@
                     <div class="device-mini-progress">
                         <div id="ui-mini-bar-2" class="device-mini-fill" style="width: 50%; background: #06b6d4;"></div>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="card config-panel-box">
-            <h4 style="border-left-color: #10b981;">🔧 Konfigurasi Kwh Meter</h4>
-            <div class="config-list">
-                <div class="config-item">
-                    <div class="config-item-info">
-                        <span>🔌 Batas Daya Rumah</span>
-                        <strong id="ui-house-va">1300 VA</strong>
-                    </div>
-                    <button class="config-btn-edit" onclick="changeHouseVA()">Ubah</button>
-                </div>
-                <div class="config-item">
-                    <div class="config-item-info">
-                        <span>🎯 Limit Anggaran</span>
-                        <strong id="ui-budget-limit">Rp 100.000</strong>
-                    </div>
-                    <button class="config-btn-edit" onclick="changeLimit()">Ubah</button>
-                </div>
-                <div class="config-item">
-                    <div class="config-item-info">
-                        <span>💵 Tarif Listrik PLN</span>
-                        <strong id="ui-pln-tariff">Rp 1.500/kWh</strong>
-                    </div>
-                    <button class="config-btn-edit" onclick="changePlnTariff()">Ubah</button>
                 </div>
             </div>
         </div>
