@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Premium Real-Time Smart Power Dashboard</title>
+    <title>Smart Plug Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -156,7 +156,7 @@
     <header class="app-header">
         <div class="app-title">
             <h1>⚡ Dashboard Listrik Pintar</h1>
-            <p id="system-status-msg">Sistem siap menerima koneksi WebSocket...</p>
+            <p id="system-status-msg">Sistem siap menerima koneksi..</p>
         </div>
         <div class="meta-controls">
             <div class="datetime-picker-wrapper">
@@ -298,7 +298,6 @@
         <div class="kwh-trend-header">
             <div>
                 <h3>📈 Grafik Akumulasi Konsumsi Hari Ini (Real-Time)</h3>
-                <p>Jam bergeser maju otomatis mencatat lonjakan kWh saat beban aktif</p>
             </div>
             <div class="kwh-trend-display">
                 <h2 id="ui-standalone-kwh-today">0.1766</h2>
@@ -312,7 +311,6 @@
 
     <div class="card chart-card">
         <h3>📊 Rekap Hasil Pencatatan Mingguan (kWh)</h3>
-        <p>Grafik harian otomatis diperbarui berdasarkan rekaman data internal berkala sistem.</p>
         <div class="chart-frame">
             <div class="chart-lines"><div></div><div></div><div></div><div></div></div>
             <div id="dynamic-chart-injection" style="display: flex; width: 100%; justify-content: space-between; align-items: flex-end; height: 100%;"></div>
