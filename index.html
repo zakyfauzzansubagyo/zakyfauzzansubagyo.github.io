@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Real-Time Smart Power Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-app: #f1f5f9;
+            --bg-card: #ffffff;
+            --text-title: #0f172a;
+            --text-body: #334155;
+            --text-muted: #64748b;
+            --color-safe: #10b981;
+            --color-warning: #f59e0b;
+            --color-danger: #ef4444;
+            --p-4: 4px; --p-8: 8px; --p-12: 12px; --p-16: 16px;
+            --p-20: 20px; --p-24: 24px; --p-32: 32px;
+            --br-md: 16px; --br-lg: 24px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background-color: var(--bg-app); color: var(--text-title); padding: var(--p-32) var(--p-24); display: flex; justify-content: center; }
+
+        .app-container { width: 100%; max-width: 1200px; display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--p-24); }
+
+        .app-header { grid-column: span 12; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: var(--p-20); flex-wrap: wrap; gap: var(--p-16); }
+        .app-title h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+        .app-title p { color: var(--text-body); font-size: 14px; margin-top: var(--p-4); }
+        
+        .meta-controls { display: flex; gap: var(--p-12); align-items: center; }
+        .datetime-picker-wrapper { background: var(--bg-card); border: 1px solid #cbd5e1; padding: var(--p-8) var(--p-16); border-radius: var(--br-md); font-size: 13px; font-weight: 600; }
+        .datetime-picker-wrapper input { border: none; outline: none; font-weight: 700; color: var(--text-title); background: transparent; }
+
+        .ws-badge { padding: var(--p-8) var(--p-16); border-radius: var(--br-md); font-weight: 700; font-size: 13px; background: #fee2e2; color: var(--color-danger); }
+        .ws-badge.mcb-trip { background: #fef2f2; color: var(--color-danger); border: 2px dashed var(--color-danger); animation: blink 1s infinite; }
+
+        .card { background: var(--bg-card); border-radius: var(--br-lg); padding: var(--p-24); box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05); border: 1px solid rgba(226, 232, 240, 0.9); }
+        
+        /* BUDGET METRIC SECTION */
+        .budget-card { grid-column: span 12; color: white; border: none; position: relative; overflow: hidden; }
+        .budget-card.safe { background: linear-gradient(135deg, #1e40af, #3b82f6); }
+        .budget-card.warning { background: linear-gradient(135deg, #9a3412, #f97316); }
+        .budget-card.danger { background: linear-gradient(135deg, #991b1b, #ef4444); }
+        .budget-card h2 { font-size: 46px; font-weight: 800; margin: var(--p-8) 0 var(--p-16) 0; letter-spacing: -1px; }
+        .progress-container { background: rgba(255, 255, 255, 0.25); height: 12px; border-radius: 6px; overflow: hidden; margin-bottom: var(--p-12); }
+        .progress-bar { background: #ffffff; height: 100%; width: 0%; transition: width 0.6s ease; }
+        .budget-card-footer { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; opacity: 0.9; }
+
+        /* MIDDLE INSIGHT GRID LAYOUT */
+        .insight-section { grid-column: span 12; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--p-24); align-items: stretch; }
+        @media (max-width: 992px) { .insight-section { grid-template-columns: 1fr; } }
+        
+        .chart-box { display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: var(--p-24); height: 100%; min-height: 340px; }
+        .chart-box h4 { font-size: 14px; font-weight: 800; color: var(--text-title); text-transform: uppercase; letter-spacing: 0.5px; align-self: flex-start; margin-bottom: var(--p-12); border-left: 4px solid #3b82f6; padding-left: 8px; }
+        
+        .canvas-container { position: relative; width: 100%; height: 170px; display: flex; align-items: center; justify-content: center; margin: auto 0; }
+
+        /* PREMIUM LOAD BAR DISTRIBUTION MAP */
+        .premium-distribution-panel { width: 100%; display: flex; flex-direction: column; justify-content: center; gap: var(--p-20); height: 100%; margin: auto 0; }
+        .master-segmented-bar { width: 100%; height: 28px; background: #e2e8f0; border-radius: 10px; overflow: hidden; display: flex; box-shadow: inset 0 2px 4px rgba(0,0,0,0.06); }
+        .segment-fill { height: 100%; transition: width 0.5s ease-in-out; position: relative; }
+        .segment-fill-1 { background: linear-gradient(90deg, #4f46e5, #6366f1); }
+        .segment-fill-2 { background: linear-gradient(90deg, #06b6d4, #22d3ee); }
+        
+        .device-share-row { display: flex; flex-direction: column; gap: var(--p-4); width: 100%; }
+        .device-share-info { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: var(--text-body); }
+        .device-share-info .dev-lbl { display: flex; align-items: center; gap: 8px; }
+        .device-share-info .dev-lbl::before { content: ''; width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .dev-lbl-1::before { background: #4f46e5; }
+        .dev-lbl-2::before { background: #06b6d4; }
+        
+        .device-mini-progress { width: 100%; height: 6px; background: #f1f5f9; border-radius: 4px; overflow: hidden; border: 1px solid #e2e8f0; }
+        .device-mini-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+
+        /* CONFIGURATION MANAGEMENT PANEL */
+        .config-panel-box { display: flex; flex-direction: column; justify-content: space-between; padding: var(--p-24); height: 100%; }
+        .config-list { width: 100%; display: flex; flex-direction: column; gap: var(--p-12); margin: auto 0; }
+        .config-item { display: flex; align-items: center; justify-content: space-between; padding: var(--p-12) var(--p-16); background: #f8fafc; border-radius: var(--br-md); border: 1px solid #e2e8f0; }
+        .config-item-info { display: flex; flex-direction: column; gap: 2px; }
+        .config-item-info span { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+        .config-item-info strong { font-size: 15px; font-weight: 800; color: var(--text-title); }
+        .config-btn-edit { background: #ffffff; border: 1px solid #cbd5e1; padding: var(--p-8) var(--p-14); border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--text-body); }
+        .config-btn-edit:hover { background: #f1f5f9; border-color: #94a3b8; }
+
+        .gauge-digital-panel { display: flex; flex-direction: column; align-items: center; width: 100%; margin-top: -15px; }
+        .gauge-watt-val { font-size: 30px; font-weight: 800; color: var(--text-title); letter-spacing: -1px; }
+        .gauge-max-val { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+
+        .insight-container-full { grid-column: span 3; }
+        @media (max-width: 992px) { .insight-container-full { grid-column: span 1; } }
+        
+        .text-insight-widget { display: flex; align-items: center; gap: var(--p-16); padding: var(--p-16) var(--p-20); border-radius: var(--br-md); font-size: 14px; font-weight: 600; border: 1px solid transparent; }
+        .text-insight-widget.state-safe { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+        .text-insight-widget.state-warning { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+        .text-insight-widget.state-danger { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+        .insight-icon-badge { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; background: rgba(255,255,255,0.6); }
+
+        /* DEVICE TOGGLE RECEPTACLE METRICS */
+        .device-card { grid-column: span 6; border-top: 4px solid #cbd5e1; transition: all 0.3s ease; }
+        @media (max-width: 768px) { .device-card { grid-column: span 12; } } 
+        .device-card.active { border-top-color: var(--color-safe); box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.08); }
+        .device-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--p-20); }
+        
+        .device-title-block { display: flex; align-items: center; gap: var(--p-4); }
+        .device-input-name { border: none; outline: none; font-size: 18px; font-weight: 800; color: var(--text-title); width: 160px; background: transparent; border-bottom: 1px dashed transparent; }
+        .device-input-name:focus { border-bottom-color: #2563eb; }
+
+        .switch { position: relative; display: inline-block; width: 46px; height: 26px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .3s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--color-safe); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        .metrics-layout { display: grid; grid-template-columns: 1fr 1fr; gap: var(--p-12); }
+        .metric-cell { background: #f8fafc; padding: var(--p-16); border-radius: var(--br-md); text-align: center; border: 1px solid #f1f5f9; }
+        .metric-cell p { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: var(--p-4); }
+        .metric-cell h3 { font-size: 19px; font-weight: 800; transition: color 0.3s; }
+        .device-card.active .metric-cell.highlight h3 { color: var(--color-safe); }
+
+        /* LIVE REAL-TIME ROLLING CHART */
+        .kwh-trend-card { grid-column: span 12; display: flex; flex-direction: column; gap: var(--p-16); }
+        .kwh-trend-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: var(--p-12); }
+        .kwh-trend-header h3 { font-size: 16px; font-weight: 800; }
+        .kwh-trend-header p { font-size: 12px; color: var(--text-muted); font-weight: 600; margin-top: 2px; }
+        .kwh-trend-display { text-align: right; }
+        .kwh-trend-display h2 { font-size: 32px; font-weight: 800; color: #2563eb; letter-spacing: -0.5px; }
+        .kwh-trend-display span { font-size: 14px; color: var(--text-muted); font-weight: 700; }
+        .trend-canvas-container { width: 100%; height: 180px; position: relative; margin-top: var(--p-4); }
+
+        /* BAR HISTOGRAM MINGGUAN */
+        .chart-card { grid-column: span 12; }
+        .chart-card h3 { font-size: 17px; font-weight: 800; }
+        .chart-card p { font-size: 13px; color: var(--text-muted); margin-top: var(--p-4); }
+        
+        .chart-frame { height: 200px; display: flex; align-items: flex-end; justify-content: space-between; position: relative; margin-top: var(--p-32); }
+        .chart-lines { position: absolute; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; top: 0; }
+        .chart-lines div { border-top: 1px dashed #e2e8f0; width: 100%; }
+        
+        .chart-bar-container { display: flex; flex-direction: column; align-items: center; gap: var(--p-8); flex: 1; z-index: 2; }
+        .chart-bar-fluid { width: 36px; background: #f1f5f9; height: 140px; border-radius: 8px; position: relative; display: flex; align-items: flex-end; overflow: hidden; }
+        .chart-bar-fill { width: 100%; background: linear-gradient(to top, #2563eb, #60a5fa); height: 0%; border-radius: 8px; transition: height 0.8s; }
+        .chart-label { font-size: 12px; font-weight: 700; color: var(--text-body); }
+        .chart-val { font-size: 11px; font-weight: 800; color: var(--text-muted); }
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    
+    <header class="app-header">
+        <div class="app-title">
+            <h1>⚡ Dashboard Listrik Pintar</h1>
+            <p id="system-status-msg">Sistem siap menerima koneksi WebSocket...</p>
+        </div>
+        <div class="meta-controls">
+            <div class="datetime-picker-wrapper">
+                📅 <input type="datetime-local" id="esp32-datetime">
+            </div>
+            <div class="ws-badge" id="ws-status-badge">
+                <span id="ws-status-text">Disconnected</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="card budget-card safe" id="budgetCard">
+        <p style="font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Akumulasi Tagihan Bulan Ini</p>
+        <h2 id="ui-total-cost">Rp 0</h2>
+        <div class="progress-container"><div class="progress-bar" id="ui-budget-bar"></div></div>
+        <div class="budget-card-footer">
+            <span id="ui-budget-status-text">🟢 Status Pemakaian: Sangat Aman</span>
+            <span id="ui-percentage-text">0% Terpakai</span>
+        </div>
+    </div>
+
+    <div class="insight-section">
+        <div class="card chart-box">
+            <h4>Beban Rumah Detik Ini</h4>
+            <div class="canvas-container">
+                <canvas id="gaugeLoadChart"></canvas>
+            </div>
+            <div class="gauge-digital-panel">
+                <span class="gauge-watt-val" id="ui-total-watt-text">0 W</span>
+                <span class="gauge-max-val" id="ui-max-watt-label">Maks Batas: 1040 W</span>
+            </div>
+        </div>
+
+        <div class="card chart-box">
+            <h4>Proporsi Konsumsi Energi</h4>
+            <div class="premium-distribution-panel">
+                <div class="master-segmented-bar">
+                    <div id="ui-seg-1" class="segment-fill segment-fill-1" style="width: 50%;"></div>
+                    <div id="ui-seg-2" class="segment-fill segment-fill-2" style="width: 50%;"></div>
+                </div>
+                <div class="device-share-row">
+                    <div class="device-share-info">
+                        <span id="ui-lbl-name-1" class="dev-lbl dev-lbl-1">Kulkas</span>
+                        <strong id="ui-lbl-share-1">0.0519 kWh (50%)</strong>
+                    </div>
+                    <div class="device-mini-progress">
+                        <div id="ui-mini-bar-1" class="device-mini-fill" style="width: 50%; background: #4f46e5;"></div>
+                    </div>
+                </div>
+                <div class="device-share-row">
+                    <div class="device-share-info">
+                        <span id="ui-lbl-name-2" class="dev-lbl dev-lbl-2">AC Kamar</span>
+                        <strong id="ui-lbl-share-2">0.1247 kWh (50%)</strong>
+                    </div>
+                    <div class="device-mini-progress">
+                        <div id="ui-mini-bar-2" class="device-mini-fill" style="width: 50%; background: #06b6d4;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card config-panel-box">
+            <h4 style="border-left-color: #10b981;">🔧 Konfigurasi Kwh Meter</h4>
+            <div class="config-list">
+                <div class="config-item">
+                    <div class="config-item-info">
+                        <span>🔌 Batas Daya Rumah</span>
+                        <strong id="ui-house-va">1300 VA</strong>
+                    </div>
+                    <button class="config-btn-edit" onclick="changeHouseVA()">Ubah</button>
+                </div>
+                <div class="config-item">
+                    <div class="config-item-info">
+                        <span>🎯 Limit Anggaran</span>
+                        <strong id="ui-budget-limit">Rp 100.000</strong>
+                    </div>
+                    <button class="config-btn-edit" onclick="changeLimit()">Ubah</button>
+                </div>
+                <div class="config-item">
+                    <div class="config-item-info">
+                        <span>💵 Tarif Listrik PLN</span>
+                        <strong id="ui-pln-tariff">Rp 1.500/kWh</strong>
+                    </div>
+                    <button class="config-btn-edit" onclick="changePlnTariff()">Ubah</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="insight-container-full">
+            <div class="text-insight-widget state-safe" id="ui-text-insight-card">
+                <div class="insight-icon-badge" id="ui-insight-icon">💡</div>
+                <div class="insight-text-content">
+                    <strong id="ui-insight-status-title">Sistem Efisien</strong>
+                    <p id="ui-insight-desc" style="font-size: 13px; margin-top: 2px; opacity: 0.9;">Nyalakan saklar perangkat di bawah untuk memantau aktivitas arus beban secara real-time.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card device-card" id="card1">
+        <div class="device-header">
+            <div class="device-title-block">
+                <input type="text" class="device-input-name" id="dev-name-1" value="Kulkas" onchange="syncDeviceUINames()">
+                <span style="font-size: 13px; opacity: 0.3;">✏️</span>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="switch1" onchange="toggleSwitchLogic()">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div class="metrics-layout">
+            <div class="metric-cell highlight"><p>Daya</p><h3 id="w1">0 W</h3></div>
+            <div class="metric-cell highlight"><p>Konsumsi</p><h3 id="k1">0.0519 kWh</h3></div>
+            <div class="metric-cell"><p>Tegangan</p><h3 id="v1">0 V</h3></div>
+            <div class="metric-cell"><p>Arus</p><h3 id="a1">0.00 A</h3></div>
+        </div>
+    </div>
+
+    <div class="card device-card" id="card2">
+        <div class="device-header">
+            <div class="device-title-block">
+                <input type="text" class="device-input-name" id="dev-name-2" value="AC Kamar" onchange="syncDeviceUINames()">
+                <span style="font-size: 13px; opacity: 0.3;">✏️</span>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="switch2" onchange="toggleSwitchLogic()">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div class="metrics-layout">
+            <div class="metric-cell highlight"><p>Daya</p><h3 id="w2">0 W</h3></div>
+            <div class="metric-cell highlight"><p>Konsumsi</p><h3 id="k2">0.1247 kWh</h3></div>
+            <div class="metric-cell"><p>Tegangan</p><h3 id="v2">0 V</h3></div>
+            <div class="metric-cell"><p>Arus</p><h3 id="a2">0.00 A</h3></div>
+        </div>
+    </div>
+
+    <div class="card kwh-trend-card">
+        <div class="kwh-trend-header">
+            <div>
+                <h3>📈 Grafik Akumulasi Konsumsi Hari Ini (Real-Time)</h3>
+                <p>Jam bergeser maju otomatis mencatat lonjakan kWh saat beban aktif</p>
+            </div>
+            <div class="kwh-trend-display">
+                <h2 id="ui-standalone-kwh-today">0.1766</h2>
+                <span>kWh Terakumulasi</span>
+            </div>
+        </div>
+        <div class="trend-canvas-container">
+            <canvas id="liveAreaKwhChart"></canvas>
+        </div>
+    </div>
+
+    <div class="card chart-card">
+        <h3>📊 Rekap Hasil Pencatatan Mingguan (kWh)</h3>
+        <p>Grafik harian otomatis diperbarui berdasarkan rekaman data internal berkala sistem.</p>
+        <div class="chart-frame">
+            <div class="chart-lines"><div></div><div></div><div></div><div></div></div>
+            <div id="dynamic-chart-injection" style="display: flex; width: 100%; justify-content: space-between; align-items: flex-end; height: 100%;"></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    let budgetLimit = 100000;
+    let tariffPerKwh = 1500; 
+    let houseVA = 1300;       
+    let maxWattLimit = 1040;   
+    
+    let currentWattLive = 0;   
+    let animatedWattValue = 0; 
+    let isMcbTripped = false;  
+
+    let kwhDevice1 = 0.0519; 
+    let kwhDevice2 = 0.1247; 
+    let loggedKwhHistory = [3.2, 4.5, 2.8, 8.1, 5.0, 6.2, 0.1766]; 
+    const daysLabel = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
+
+    // Menginisialisasi antrean data kosong agar jam pertama diambil saat halaman dibuka pertama kali
+    let liveKwhTimelineData = [];
+    let liveKwhLabels = [];
+
+    let gaugeChart, areaTrendChart;
+
+    const gaugeNeedlePlugin = {
+        id: 'gaugeNeedle',
+        afterDatasetsDraw(chart) {
+            const { ctx } = chart;
+            ctx.save();
+            const xCenter = chart.getDatasetMeta(0).data[0].x;
+            const yCenter = chart.getDatasetMeta(0).data[0].y;
+            const outerRadius = chart.getDatasetMeta(0).data[0].outerRadius;
+            
+            animatedWattValue += (currentWattLive - animatedWattValue) * 0.12; 
+            const anglePercentage = animatedWattValue / maxWattLimit;
+            const angle = Math.PI + (Math.PI * Math.min(Math.max(anglePercentage, 0), 1.02));
+
+            ctx.shadowColor = 'rgba(15, 23, 42, 0.2)';
+            ctx.shadowBlur = 5; ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 3;
+
+            ctx.beginPath(); 
+            ctx.strokeStyle = '#1e293b'; 
+            ctx.lineWidth = 5; 
+            ctx.lineCap = 'round';
+            ctx.moveTo(xCenter, yCenter);
+            ctx.lineTo(xCenter + (outerRadius - 12) * Math.cos(angle), yCenter + (outerRadius - 12) * Math.sin(angle));
+            ctx.stroke();
+
+            ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+            ctx.beginPath(); ctx.arc(xCenter, yCenter, 9, 0, Math.PI * 2); ctx.fillStyle = '#0f172a'; ctx.fill();
+            ctx.beginPath(); ctx.arc(xCenter, yCenter, 4, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+            ctx.restore();
+        }
+    };
+
+    window.onload = function() {
+        // Isi inisiasi awal waktu saat widget pertama kali di-load
+        initializeTimeTrackerLabels();
+        initCharts();
+        renderLiveChart();
+        syncDeviceUINames();
+        setInterval(() => { if (gaugeChart) gaugeChart.update('none'); }, 1000 / 60);
+        setInterval(simulatedLivePower, 2000); // Trigger data real-time bergulir maju tiap 2 detik
+    };
+
+    // Fungsi pencatatan titik waktu aktual berjalan maju (Rolling Time Window)
+    function initializeTimeTrackerLabels() {
+        let baseTime = new Date();
+        for (let i = 5; i >= 0; i--) {
+            let t = new Date(baseTime.getTime() - i * 4000); // Interval mundur sebagai histori awal halaman dibuka
+            let timeStr = t.getHours().toString().padStart(2, '0') + ":" + 
+                          t.getMinutes().toString().padStart(2, '0') + ":" + 
+                          t.getSeconds().toString().padStart(2, '0');
+            liveKwhLabels.push(timeStr);
+            liveKwhTimelineData.push(kwhDevice1 + kwhDevice2);
+        }
+        updateInputHeaderDateTime(baseTime);
+    }
+
+    function updateInputHeaderDateTime(dateObj) {
+        let tzoffset = dateObj.getTimezoneOffset() * 60000;
+        let localISOTime = (new Date(dateObj.getTime() - tzoffset)).toISOString().slice(0, 16);
+        document.getElementById('esp32-datetime').value = localISOTime;
+    }
+
+    function initCharts() {
+        // GAUGE CHART
+        const ctxGauge = document.getElementById('gaugeLoadChart').getContext('2d');
+        gaugeChart = new Chart(ctxGauge, {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [50, 30, 20], 
+                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444'], 
+                    borderWidth: 0, circumference: 180, rotation: 270, cutout: '85%'
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } } },
+            plugins: [gaugeNeedlePlugin]
+        });
+
+        // REAL-TIME AREA TREND CHART
+        const ctxArea = document.getElementById('liveAreaKwhChart').getContext('2d');
+        const blueGradient = ctxArea.createLinearGradient(0, 0, 0, 180);
+        blueGradient.addColorStop(0, 'rgba(37, 99, 235, 0.25)');
+        blueGradient.addColorStop(1, 'rgba(37, 99, 235, 0.0)');
+
+        areaTrendChart = new Chart(ctxArea, {
+            type: 'line',
+            data: {
+                labels: liveKwhLabels,
+                datasets: [{ 
+                    label: 'Kumulatif kWh', 
+                    data: liveKwhTimelineData, 
+                    borderColor: '#2563eb', 
+                    borderWidth: 3, 
+                    pointBackgroundColor: '#2563eb', 
+                    fill: true, 
+                    backgroundColor: blueGradient, 
+                    tension: 0.2 // Kurva dibuat presisi mengikuti titik waktu aktual
+                }]
+            },
+            options: {
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } },
+                scales: { 
+                    x: { grid: { display: false }, ticks: { font: { weight: '600', size: 11 }, maxRotation: 0 } }, 
+                    y: { grid: { color: '#f1f5f9' }, ticks: { font: { weight: '600' } } } 
+                }
+            }
+        });
+    }
+
+    function refreshPremiumDistributionPanel() {
+        let total = kwhDevice1 + kwhDevice2;
+        let pct1 = total > 0 ? (kwhDevice1 / total) * 100 : 50;
+        let pct2 = total > 0 ? (kwhDevice2 / total) * 100 : 50;
+
+        document.getElementById('ui-seg-1').style.width = pct1 + "%";
+        document.getElementById('ui-seg-2').style.width = pct2 + "%";
+
+        document.getElementById('ui-lbl-share-1').innerText = `${kwhDevice1.toFixed(4)} kWh (${pct1.toFixed(0)}%)`;
+        document.getElementById('ui-mini-bar-1').style.width = pct1 + "%";
+
+        document.getElementById('ui-lbl-share-2').innerText = `${kwhDevice2.toFixed(4)} kWh (${pct2.toFixed(0)}%)`;
+        document.getElementById('ui-mini-bar-2').style.width = pct2 + "%";
+    }
+
+    function syncDeviceUINames() {
+        let name1 = document.getElementById('dev-name-1').value;
+        let name2 = document.getElementById('dev-name-2').value;
+        document.getElementById('ui-lbl-name-1').innerText = name1;
+        document.getElementById('ui-lbl-name-2').innerText = name2;
+        refreshPremiumDistributionPanel();
+    }
+
+    function processLiveSensorData(data) {
+        if(isNaN(kwhDevice1) || kwhDevice1 > 9999) kwhDevice1 = 0.0519;
+        if(isNaN(kwhDevice2) || kwhDevice2 > 9999) kwhDevice2 = 0.1247;
+
+        let totalWatt = data.watt1 + data.watt2;
+        if (totalWatt > maxWattLimit && !isMcbTripped) {
+            triggerMcbTripBreak();
+            return;
+        }
+        if (isMcbTripped) return;
+
+        document.getElementById('w1').innerText = data.watt1.toFixed(1) + " W";
+        document.getElementById('k1').innerText = kwhDevice1.toFixed(4) + " kWh";
+        document.getElementById('v1').innerText = data.volt1 + " V";
+        document.getElementById('a1').innerText = data.amp1.toFixed(2) + " A";
+
+        document.getElementById('w2').innerText = data.watt2.toFixed(1) + " W";
+        document.getElementById('k2').innerText = kwhDevice2.toFixed(4) + " kWh";
+        document.getElementById('v2').innerText = data.volt2 + " V";
+        document.getElementById('a2').innerText = data.amp2.toFixed(2) + " A";
+
+        let totalKwhToday = kwhDevice1 + kwhDevice2;
+        document.getElementById('ui-standalone-kwh-today').innerText = totalKwhToday.toFixed(4);
+
+        // KUNCI PERBAIKAN: Menangkap waktu aktual berjalan maju detik demi detik
+        let now = new Date();
+        let timeString = now.getHours().toString().padStart(2, '0') + ":" + 
+                         now.getMinutes().toString().padStart(2, '0') + ":" + 
+                         now.getSeconds().toString().padStart(2, '0');
+        
+        // Dorong waktu terkini ke sumbu X & data kWh ke sumbu Y grafik
+        liveKwhLabels.push(timeString);
+        liveKwhTimelineData.push(totalKwhToday);
+        
+        // Membatasi lebar jendela grafik hanya menampilkan 7 titik teranyar (Antrean Bergeser / Rolling Queue)
+        if(liveKwhTimelineData.length > 7) { 
+            liveKwhTimelineData.shift(); 
+            liveKwhLabels.shift(); 
+        }
+        
+        // Perbarui komponen jam pada input header atas
+        updateInputHeaderDateTime(now);
+        areaTrendChart.update();
+
+        loggedKwhHistory[6] = totalKwhToday;
+        renderLiveChart();
+
+        let totalCost = Math.floor(totalKwhToday * tariffPerKwh);
+        evaluateBudgetStates(totalCost);
+
+        currentWattLive = totalWatt; 
+        document.getElementById('ui-total-watt-text').innerText = totalWatt.toFixed(1) + " W";
+
+        refreshPremiumDistributionPanel();
+
+        // INSIGHT BANNER RADAR
+        const insightCard = document.getElementById('ui-text-insight-card');
+        const iconBadge = document.getElementById('ui-insight-icon');
+        const statusTitle = document.getElementById('ui-insight-status-title');
+        const descText = document.getElementById('ui-insight-desc');
+        let loadFactor = totalWatt / maxWattLimit;
+
+        if (totalWatt === 0) {
+            insightCard.className = "text-insight-widget state-safe"; iconBadge.innerText = "🍃";
+            statusTitle.innerText = "Mode Siaga (Standby)"; descText.innerText = "Semua saklar mati. Penggunaan energi nihil, bagus untuk menghemat listrik.";
+        } else if (loadFactor >= 0.85) {
+            insightCard.className = "text-insight-widget state-danger"; iconBadge.innerText = "⚠️";
+            statusTitle.innerText = "Beban Kritis (Zona Merah)"; descText.innerText = `Pemakaian menyentuh ${(loadFactor*100).toFixed(0)}% batas rumah. Segera matikan alat agar tidak jeglek!`;
+        } else if (loadFactor >= 0.5) {
+            insightCard.className = "text-insight-widget state-warning"; iconBadge.innerText = "⚡";
+            statusTitle.innerText = "Konsumsi Menengah (Zona Kuning)"; descText.innerText = "Aktivitas elektronik sedang berjalan moderat. Pantau terus grafik akumulasi kWh Anda.";
+        } else {
+            insightCard.className = "text-insight-widget state-safe"; iconBadge.innerText = "✅";
+            statusTitle.innerText = "Aliran Stabil (Zona Hijau)"; descText.innerText = "Daya berjalan sangat efisien dan jauh dari ambang batas aman kapasitas rumah.";
+        }
+    }
+
+    function triggerMcbTripBreak() {
+        isMcbTripped = true; currentWattLive = 0;
+        document.getElementById('switch1').checked = false; document.getElementById('switch2').checked = false;
+        document.getElementById('card1').classList.remove('active'); document.getElementById('card2').classList.remove('active');
+
+        document.getElementById('w1').innerText = "0 W"; document.getElementById('a1').innerText = "0.00 A"; document.getElementById('v1').innerText = "0 V";
+        document.getElementById('w2').innerText = "0 W"; document.getElementById('a2').innerText = "0.00 A"; document.getElementById('v2').innerText = "0 V";
+        document.getElementById('ui-total-watt-text').innerText = "0 W";
+
+        const badge = document.getElementById('ws-status-badge');
+        badge.className = "ws-badge mcb-trip";
+        document.getElementById('ws-status-text').innerText = "🚨 MCB TRIPPED (JEGLEK)";
+
+        const insightCard = document.getElementById('ui-text-insight-card');
+        insightCard.className = "text-insight-widget state-danger";
+        document.getElementById('ui-insight-icon').innerText = "🚨";
+        document.getElementById('ui-insight-status-title').innerText = "Sistem Keamanan Aktif: Listrik Terputus!";
+        document.getElementById('ui-insight-desc').innerText = "Beban melampaui batas 100% watt rumah. Aliran listrik diputus demi alasan keselamatan.";
+    }
+
+    function toggleSwitchLogic() {
+        if(isMcbTripped) {
+            isMcbTripped = false;
+            const badge = document.getElementById('ws-status-badge');
+            badge.className = "ws-badge"; badge.style.background = "#fee2e2"; badge.style.color = "#dc2626";
+            document.getElementById('ws-status-text').innerText = "Disconnected";
+        }
+    }
+
+    //DATA GENERATOR
+    function simulatedLivePower() {
+        if (isMcbTripped) return; 
+
+        const isSw1On = document.getElementById('switch1').checked;
+        const isSw2On = document.getElementById('switch2').checked;
+
+        document.getElementById('card1').classList.toggle('active', isSw1On);
+        document.getElementById('card2').classList.toggle('active', isSw2On);
+
+        const w1 = isSw1On ? parseFloat((60 + Math.random() * 40).toFixed(1)) : 0;
+        const v1 = isSw1On ? 220 : 0;
+        const a1 = isSw1On ? (w1 / v1) : 0;
+
+        const w2 = isSw2On ? parseFloat((550 + Math.random() * 460).toFixed(1)) : 0;
+        const v2 = isSw2On ? 220 : 0;
+        const a2 = isSw2On ? (w2 / v2) : 0;
+
+        // Simulasi perhitungan akumulasi penambahan nilai kWh dari Watt aktual berjalan
+        if (isSw1On) kwhDevice1 += (w1 * 2) / 3600000; 
+        if (isSw2On) kwhDevice2 += (w2 * 2) / 3600000; 
+
+        const mockData = { watt1: w1, volt1: v1, amp1: a1, watt2: w2, volt2: v2, amp2: a2 };
+        processLiveSensorData(mockData);
+    }
+
+    function changeHouseVA() {
+        let input = prompt("Masukkan Kapasitas Listrik Rumah Anda (VA):", houseVA);
+        if (input && !isNaN(input)) {
+            houseVA = parseInt(input);
+            maxWattLimit = Math.floor(houseVA * 0.8);
+            document.getElementById('ui-house-va').innerText = houseVA + " VA";
+            document.getElementById('ui-max-watt-label').innerText = `Maks Batas: ${maxWattLimit} W`;
+            if(isMcbTripped) toggleSwitchLogic();
+        }
+    }
+
+    function renderLiveChart() {
+        const chartWrapper = document.getElementById('dynamic-chart-injection');
+        chartWrapper.innerHTML = '';
+        const maxKwhVal = Math.max(...loggedKwhHistory, 1.0); 
+
+        loggedKwhHistory.forEach((val, index) => {
+            let heightPercent = (val / maxKwhVal) * 100;
+            const barGroup = document.createElement('div');
+            barGroup.className = 'chart-bar-container';
+            barGroup.innerHTML = `
+                <span class="chart-val">${val.toFixed(1)}</span>
+                <div class="chart-bar-fluid"><div class="chart-bar-fill" style="height: ${heightPercent}%;"></div></div>
+                <span class="chart-label">${daysLabel[index]}</span>
+            `;
+            chartWrapper.appendChild(barGroup);
+        });
+    }
+
+    function evaluateBudgetStates(cost) {
+        document.getElementById('ui-total-cost').innerText = "Rp " + cost.toLocaleString('id-ID');
+        const card = document.getElementById('budgetCard');
+        const bar = document.getElementById('ui-budget-bar');
+        const txt = document.getElementById('ui-budget-status-text');
+        const percentTxt = document.getElementById('ui-percentage-text');
+        
+        let percentage = (cost / budgetLimit) * 100;
+        bar.style.width = Math.min(percentage, 100) + "%";
+        percentTxt.innerText = Math.min(percentage, 100).toFixed(0) + "% Terpakai";
+        
+        card.className = "card budget-card";
+        if (percentage >= 100) { card.classList.add('danger'); txt.innerText = "🔴 Status Pemakaian: Limit Terlewati!"; }
+        else if (percentage >= 80) { card.classList.add('warning'); txt.innerText = "🟠 Status Pemakaian: Mendekati Batas"; }
+        else { card.classList.add('safe'); txt.innerText = "🟢 Status Pemakaian: Sangat Aman"; }
+    }
+
+    function changeLimit() {
+        let input = prompt("Batas Limit Baru (Rp):", budgetLimit);
+        if (input && !isNaN(input)) { budgetLimit = parseInt(input); document.getElementById('ui-budget-limit').innerText = "Rp " + budgetLimit.toLocaleString('id-ID'); }
+    }
+    function changePlnTariff() {
+        let input = prompt("Tarif Baru/kWh (Rp):", tariffPerKwh);
+        if (input && !isNaN(input)) { tariffPerKwh = parseInt(input); document.getElementById('ui-pln-tariff').innerText = "Rp " + tariffPerKwh.toLocaleString('id-ID') + "/kWh"; }
+    }
+</script>
+</body>
+</html>
